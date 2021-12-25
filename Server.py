@@ -1,7 +1,9 @@
 # first of all import the socket library
 import random
 import socket
+from socket import *
 import threading
+import time
 
 
 # s.bind(('', port))
@@ -9,7 +11,7 @@ import threading
 # # put the socket into listening mode
 # s.listen(5)
 # print("socket is listening")
-import time
+from colors import bcolors
 
 
 class Server:
@@ -20,7 +22,7 @@ class Server:
         param1 = random.randint(1, 10)
         param2 = random.randint(1, 10)
         sign_rand = random.randint(0, 3)
-        answer = 0
+        answer = -1
         sign = ""
         if sign_rand == 0:
             answer = param1 + param2
@@ -36,8 +38,9 @@ class Server:
             answer = param1 * param2
             sign = "*"
         if sign_rand == 3:
-            answer = param1 / param2
-            sign = "/"
+            if param1 % param2 == 0:
+                answer = int(param1 / param2)
+                sign = "/"
         if -1 < answer < 10:
             return param1, param2, sign, answer
         else:
@@ -45,12 +48,12 @@ class Server:
 
     def start_server(self):
         # host port - maybe the return value of the TCP Socket    or    BIND
-        print("amit")
         our_IP = "55.5555..555.55555"
-        print("Server started, listening on IP address " + our_IP)
+        print(f"{bcolors.OKBLUE}Server started, listening on IP address " + our_IP)
         ## --------------------- STATE 1 - Waiting for clients ----------------------------------------
         UDP_destination_port = 13117
-        TCP_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # TCP_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        TCP_socket = socket(AF_INET, SOCK_STREAM)
         TCP_socket.bind(('', 0))
         host_port = TCP_socket.getsockname()[1]
         # TCP_socket.bind((our_IP, host_port))
@@ -59,13 +62,14 @@ class Server:
         message_type = bytes.fromhex('02')
         host_port_bytes = host_port.to_bytes(2, "big")
         offer_message = b''.join([magic_cookie, message_type, host_port_bytes])
-        UDP_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # UDP_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        UDP_socket = socket(AF_INET, SOCK_DGRAM)
         # send broadcast - every second
-        UDP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        UDP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        # UDP_socket.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
+        UDP_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         # UDP_socket.bind(('', UDP_destination_port))
-        UDP_socket.sendto(offer_message, ("", UDP_destination_port))
-        # UDP_socket.sendto(offer_message,  ('255.255.255.255', UDP_destination_port))
+        # UDP_socket.sendto(offer_message, ("", UDP_destination_port))
+        UDP_socket.sendto(offer_message,  ('255.255.255.255', UDP_destination_port))
         TCP_socket.listen(2)
         c1, addr1 = TCP_socket.accept()
         c2, addr2 = TCP_socket.accept()
@@ -95,7 +99,8 @@ class Server:
         c1.close()
         c2.close()
         TCP_socket.close()
-        print("Game Over, sending out offer requests...")
+        print(f"{bcolors.OKBLUE} summary:" + final_message)
+        print(f"{bcolors.OKBLUE}Game Over, sending out offer requests...")
         self.start_server()
 
 class Client_thread(threading.Thread):
@@ -105,6 +110,7 @@ class Client_thread(threading.Thread):
         self.question = question
         self.answer = answer
         self.myName = myName
+        print(myName)
         self.opponnetName = opponnetName
         self.flag = flag
         self.winner = winner
@@ -119,13 +125,17 @@ class Client_thread(threading.Thread):
             self.finish_game(client_answer)
         except Exception as e:
             # draw
+            print(f"{bcolors.YELLOW}PASS")
             pass
 
     def finish_game(self, client_answer):
         if self.flag == [False]:
             if int(client_answer) == self.answer:
                 self.winner = self.myName
+                print(f"{bcolors.YELLOW}1111")
             else:
                 self.winner = self.opponnetName
+                print(f"{bcolors.YELLOW}222222222")
+
             self.flag = [True]
 

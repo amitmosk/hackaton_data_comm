@@ -1,9 +1,10 @@
 import socket
 import time
 
+from Client import Client
 from Server import Server
 
 
 class check:
-    print("5")
-    sss = Server()
+    # sss = Server()
+    ccc=Client()
