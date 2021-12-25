@@ -1,5 +1,8 @@
 # first of all import the socket library
+import random
 import socket
+import threading
+
 
 # s.bind(('', port))
 # print("socket binded to %s" % (port))
@@ -11,34 +14,62 @@ import time
 
 class Server:
     def __init__(self):
-        print("%5555")
         self.start_server()
 
     def get_question(self):
-        return 555, 555, "+", 555
+        param1 = random.randint(1, 10)
+        param2 = random.randint(1, 10)
+        sign_rand = random.randint(0, 3)
+        answer = 0
+        sign = ""
+        if sign_rand == 0:
+            answer = param1 + param2
+            sign = "+"
+        if sign_rand == 1:
+            if param1 < param2:
+                temp = param2
+                param2 = param1
+                param1 = temp
+            answer = param1 - param2
+            sign = "-"
+        if sign_rand == 2:
+            answer = param1 * param2
+            sign = "*"
+        if sign_rand == 3:
+            answer = param1 / param2
+            sign = "/"
+        if -1 < answer < 10:
+            return param1, param2, sign, answer
+        else:
+            return self.get_question()
 
     def start_server(self):
         # host port - maybe the return value of the TCP Socket    or    BIND
         print("amit")
-        host_port = 2000
         our_IP = "55.5555..555.55555"
         print("Server started, listening on IP address " + our_IP)
-        winner = "Nobody, its a Draw!!!"
         ## --------------------- STATE 1 - Waiting for clients ----------------------------------------
         UDP_destination_port = 13117
         TCP_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        TCP_socket.bind(('', 0))
+        host_port = TCP_socket.getsockname()[1]
+        # TCP_socket.bind((our_IP, host_port))
+        # build the message according the format
         magic_cookie = bytes.fromhex('abcddcba')
         message_type = bytes.fromhex('02')
         host_port_bytes = host_port.to_bytes(2, "big")
-        offer_message = magic_cookie.join(message_type.join(host_port_bytes))
+        offer_message = b''.join([magic_cookie, message_type, host_port_bytes])
         UDP_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # send broadcast - every second
-        UDP_socket.sendto(offer_message.encode(), UDP_destination_port)
+        UDP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        UDP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        # UDP_socket.bind(('', UDP_destination_port))
+        UDP_socket.sendto(offer_message, ("", UDP_destination_port))
+        # UDP_socket.sendto(offer_message,  ('255.255.255.255', UDP_destination_port))
         TCP_socket.listen(2)
         c1, addr1 = TCP_socket.accept()
         c2, addr2 = TCP_socket.accept()
         time.sleep(10)
-        # reject others
         UDP_socket.close()
         ## --------------------- STATE 2 - Game Mode ----------------------------------------
         group_1_name = c1.recv(1024).decode()
@@ -47,19 +78,16 @@ class Server:
         digit1, digit2, sign, answer = self.get_question()
         rand_question = "how much is " + str(digit1) + sign + str(digit2)
         math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + group_2_name + "\n == \nPlease answer the following question as fast as you can:\n" + rand_question
-        # send 2 clients the message_math_question
-        c1.send(math_question_message.encode())
-        c2.send(math_question_message.encode())
         # within 10 seconds - finish the game
-        # get answers and check them
-        client_answer = c1.recv(1024, timeout=10)
-        if client_answer == answer:
-            winner = group_555_name
-        else:
-            winner = group_555555_name
-
-        final_message = "Game Over! \n The correct answer was " + str(
-            answer) + "!\n \n Congratulations to the winner :" + winner
+        flag = [False]
+        winner = "Nobody, its a Draw!!!"
+        t1 = Client_thread(c1, math_question_message, answer, group_1_name, group_2_name, flag, winner)
+        t2 = Client_thread(c2, math_question_message, answer, group_2_name, group_1_name, flag, winner)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        final_message = "Game Over! \n The correct answer was " + str(answer) + "!\n \n Congratulations to the winner :" + winner
         # send final message to the clients
         c1.send(final_message.encode())
         c2.send(final_message.encode())
@@ -68,4 +96,36 @@ class Server:
         c2.close()
         TCP_socket.close()
         print("Game Over, sending out offer requests...")
-        self.tart_server()
+        self.start_server()
+
+class Client_thread(threading.Thread):
+    def __init__(self, connection, question, answer, myName, opponnetName, flag, winner):
+        threading.Thread.__init__(self)
+        self.connection = connection
+        self.question = question
+        self.answer = answer
+        self.myName = myName
+        self.opponnetName = opponnetName
+        self.flag = flag
+        self.winner = winner
+
+    def run(self):
+        self.connection.send(self.question.encode())
+        try:
+            # send client the message_math_question
+            self.connection.settimeout(10)
+            # get answer and check
+            client_answer = self.connection.recv(1024).decode()
+            self.finish_game(client_answer)
+        except Exception as e:
+            # draw
+            pass
+
+    def finish_game(self, client_answer):
+        if self.flag == [False]:
+            if int(client_answer) == self.answer:
+                self.winner = self.myName
+            else:
+                self.winner = self.opponnetName
+            self.flag = [True]
+

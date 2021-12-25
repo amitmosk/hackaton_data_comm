@@ -3,59 +3,123 @@
 import socket  # for socket
 import sys
 
-try:
+class Client:
+    def __init__(self):
+        self.team_name = "green apes\n"
+        self.RESERVED_PORTS = 120
+        self.start_client()
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # AF_INET - the address-family ipv4
-    # SOCK_STREAM - connection-oriented TCP protocol
-    print("Socket successfully created")
-except socket.error as err:
-    print("socket creation failed with error %s" % (err))
-port = 80
-try:
-    host_ip = socket.gethostbyname('www.google.com')
-except socket.gaierror:
-    # this means could not resolve the host
-    print("there was an error resolving the host")
-    sys.exit()
+    def start_client(self):
+        ## ------------------ STATE 1 -------------------------------------------------------
+        print("Client started, listening for offer requests...")
+        try:
+            UDP_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        except socket.error as err:
+            print("socket creation failed with error %s" % (err))
+            self.start_client()
+            return
 
-# connecting to the server
-s.connect((host_ip, port))
+        UDP_IP = "555.555.55.5555"
+        UDP_PORT = 13117
 
-print("the socket has successfully connected to google")
+        # receive broadcast via UDP
+        try:
+            offer_message, server_ip = UDP_socket.recvfrom(1024)
+            server_port = self.check_offer_message(offer_message)
+            if server_port == -1:
+                UDP_socket.close()
+                print("broken message")
+                self.start_client()
+                return
+        except Exception as err:
+            UDP_socket.close()
+            print(err)
+            print("cant receive from UDP connection")
+            self.start_client()
+            return
 
-print(s.recv(1024).decode())
-# close the connection
-s.close()
+        print("Received offer from " + server_ip + ", attempting to connect...")
+        ## ------------------ STATE 2 -------------------------------------------------------
+        # create TCP socket
+        try:
+            TCP_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        except socket.error as err:
+            print("socket creation failed with error %s" % (err))
+            UDP_socket.close()
+            self.start_client()
+            return
 
-while True:
-    team_name = "green apes\n"
-    ## ------------------ STATE 1 -------------------------------------------------------
-    print("Client started, listening for offer requests...")
-    try:
-        UDP_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    except socket.error as err:
-        print("socket creation failed with error %s" % (err))
-    UDP_IP = "555.555.55.5555"
-    UDP_PORT = 13117
-    # receive broadcast via UDP
-    offer_message, addr = UDP_socket.recvfrom(1024)
-    host_ip = offer_message[555555]
-    server_port = offer_message[555]
-    print("Received offer from " + addr + ", attempting to connect...")
-    ## ------------------ STATE 2 -------------------------------------------------------
-    try:
-        TCP_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    except socket.error as err:
-        print("socket creation failed with error %s" % (err))
-    TCP_socket.connect((host_ip, port))
-    ## ------------------ STATE 3 -------------------------------------------------------
-    UDP_socket.close()
-    TCP_socket.send(team_name.encode())
-    # get & print the question
-    print(TCP_socket.recv(1024).decode())
-    our_answer = input("Enter your answer:")
-    TCP_socket.send(our_answer.encode())
-    # get the summary
-    print(TCP_socket.recv(1024).decode())
-    TCP_socket.close()
+        # connect TCP server socket
+        try:
+            TCP_socket.connect((server_ip, server_port))
+        except socket.error as e:
+            print(e)
+            UDP_socket.close()
+            TCP_socket.close()
+            print("cant connect to server")
+            self.start_client()
+            return
+
+        ## ------------------ STATE 3 -------------------------------------------------------
+
+        # closing UDP connection
+        UDP_socket.close()
+        # send team name to the server
+        send_name_flag = False
+        while not send_name_flag:
+            try:
+                TCP_socket.send(self.team_name.encode())
+                send_name_flag = True
+            except socket.error as e:
+                print(e)
+                print("didnt send team name message, try again..")
+
+        # get & print the question
+        get_question_flag = False
+        while not get_question_flag:
+            try:
+                print(TCP_socket.recv(1024).decode())
+                get_question_flag = True
+                our_answer = input("Enter your answer:")
+            except Exception as e:
+                print(e)
+                print("didnt got the question message, try again..")
+
+        # send our answer to server
+        send_answer_flag = False
+        while not send_answer_flag:
+            try:
+                TCP_socket.send(our_answer.encode())
+                send_answer_flag = True
+            except Exception as e:
+                print(e)
+                print("didnt send the answer message, try again..")
+
+        # get the summary
+        get_summary_flag = False
+        while not get_summary_flag:
+            try:
+                print(TCP_socket.recv(1024).decode())
+                get_summary_flag = True
+            except Exception as e:
+                print(e)
+                print("didnt got the summary message, try again..")
+
+        TCP_socket.close()
+
+
+    def check_offer_message(self, msg):
+        magic = msg[0:4]
+        msg_type = msg[4]
+        host_port = msg[5:7]
+        if (msg_type != 2):
+            print("wrong msg type")
+            return -1
+        if (magic != b"\xab\xcd\xdc\xba"):
+            print("wrong msg magic number")
+            return -1
+        ans = int.from_bytes(host_port, "big")
+        if ans > self.RESERVED_PORTS:
+            return ans
+        else:
+            return -1
