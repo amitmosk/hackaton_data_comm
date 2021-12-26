@@ -21,13 +21,18 @@ class Client:
             self.start_client()
             return
 
-        UDP_IP = "555.555.55.5555"
+        UDP_IP = "127.0.0.1"
         UDP_PORT = 13117
-        # UDP_socket.bind()
+
+
+        # UDP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # UDP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        UDP_socket.bind((UDP_IP, UDP_PORT))
         # receive broadcast via UDP
         try:
-            offer_message, server_ip = UDP_socket.recvfrom(1024)
+            offer_message, addr = UDP_socket.recvfrom(1024)
             server_port = self.check_offer_message(offer_message)
+            server_ip = addr[0]
             if server_port == -1:
                 UDP_socket.close()
                 self.start_client()
@@ -54,10 +59,10 @@ class Client:
         try:
             TCP_socket.connect((server_ip, server_port))
         except socket.error as e:
+            print(f"{bcolors.RED}cant connect to server")
             print(e)
             UDP_socket.close()
             TCP_socket.close()
-            print(f"{bcolors.RED}cant connect to server")
             self.start_client()
             return
 
