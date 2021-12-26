@@ -13,11 +13,9 @@ import time
 # print("socket is listening")
 from colors import bcolors
 
-
 class Server:
     def __init__(self):
         self.start_server()
-
 
 
     def start_server(self):
@@ -30,11 +28,10 @@ class Server:
 
         ## ----------------------------------- STATE 1 - Waiting for clients --------------------------------------------------
 
-        # create TCP socket
-        TCP_socket = socket(AF_INET, SOCK_STREAM)
-        TCP_socket.bind(('', 0))
 
-        # get gost port from the socket
+        TCP_socket = self.create_bind_TCP_socket()
+
+        # get host port from the socket
         host_port = TCP_socket.getsockname()[1]
         offer_message = self.build_msg(host_port)
 
@@ -46,8 +43,9 @@ class Server:
         UDP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         UDP_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
 
+        # set TCP socket to listen to maximum 2 clients
         TCP_socket.listen(2)
-        send_thread_flag = ["amit"]
+        send_thread_flag = [False]
 
         # create thread to manage broadcast sends
         send_broadcast = Send_UDP_thread(offer_message, UDP_socket, UDP_addr, send_thread_flag)
@@ -57,14 +55,14 @@ class Server:
 
 
         c1, addr1 = TCP_socket.accept()
-
-        # c2, addr2 = TCP_socket.accept()
+        c2, addr2 = TCP_socket.accept()
 
         # set flag to kill sending thread
-        send_thread_flag[0] = "True"
+        send_thread_flag[0] = True
         print("its changed")
         send_broadcast.join()
 
+        #wait 10 second before starting the game
         time.sleep(10)
 
         #closing UDP socket
@@ -72,32 +70,18 @@ class Server:
 
 
         ## ------------------------------------------------ STATE 2 - Game Mode ------------------------------------------------------------
-        recv_flag = False
-        while not recv_flag:
-            try:
-                # receive group names from the clients
-                group_1_name = c1.recv(1024).decode()
-                # group_2_name = c2.recv(1024).decode()
-                recv_flag = True
-            except socket.error as e:
-                print(e)
-                print(f"{bcolors.RED}didnt receive team name message, try again..")
-
-
-
-
-
+        # receive group names from the clients
+        group_1_name, group_2_name = self.receive_group_names(c1, c2)
 
         # generate question
         rand_question, answer = self.get_question()
-        #rand_question = "how much is " + str(digit1) + sign + str(digit2)
-        math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + "group_2_name" + "\n == \nPlease answer the following question as fast as you can:\n" + rand_question
-        # within 10 seconds - finish the game
+
+        math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + group_2_name + "\n == \nPlease answer the following question as fast as you can:\n" + rand_question
 
         # set flag to stop the game
         flag = [False]
         winner = ["Nobody, its a Draw!!!"]
-        t1 = Client_thread(c1, math_question_message, answer, group_1_name, "group_2_name", flag, winner)
+        t1 = Client_thread(c1, math_question_message, answer, group_1_name, group_2_name, flag, winner)
         # t2 = Client_thread(c2, math_question_message, answer, group_2_name, group_1_name, flag, winner)
         t1.start()
         # t2.start()
@@ -157,6 +141,32 @@ class Server:
             #return param1, param2, sign, answer
         else:
             return self.get_question()
+
+    def create_bind_TCP_socket(self):
+        bind_flag = False
+        while not bind_flag:
+            try:
+                # create TCP socket
+                TCP_socket = socket(AF_INET, SOCK_STREAM)
+                TCP_socket.bind(('', 0))
+            except Exception as e:
+                # should not happen
+                print(e)
+                bind_flag = True
+
+    def receive_group_names(self, c1, c2):
+        recv_flag = False
+        while not recv_flag:
+            try:
+                # receive group names from the clients
+                group_1_name = c1.recv(1024).decode()
+                group_2_name = c2.recv(1024).decode()
+                return group_1_name, group_2_name
+                recv_flag = True
+            except socket.error as e:
+                print(e)
+                print(f"{bcolors.RED}didnt receive team name message, try again..")
+
 
 class Client_thread(threading.Thread):
     def __init__(self, connection, question, answer, myName, opponnetName, flag, winner):
