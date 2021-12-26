@@ -18,6 +18,116 @@ class Server:
     def __init__(self):
         self.start_server()
 
+
+
+    def start_server(self):
+        # host port - maybe the return value of the TCP Socket    or    BIND
+        our_IP = "127.0.0.1"
+        UDP_destination_port = 13117
+        UDP_addr = (our_IP, UDP_destination_port)
+
+        print(f"{bcolors.OKBLUE}Server started, listening on IP address " + our_IP)
+
+        ## ----------------------------------- STATE 1 - Waiting for clients --------------------------------------------------
+
+        # create TCP socket
+        TCP_socket = socket(AF_INET, SOCK_STREAM)
+        TCP_socket.bind(('', 0))
+
+        # get gost port from the socket
+        host_port = TCP_socket.getsockname()[1]
+        offer_message = self.build_msg(host_port)
+
+        #create UDP socket
+        UDP_socket = socket(AF_INET, SOCK_DGRAM)
+
+
+        # set UDP socket flags to support multiple clients
+        UDP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        UDP_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+
+        TCP_socket.listen(2)
+        send_thread_flag = ["amit"]
+
+        # create thread to manage broadcast sends
+        send_broadcast = Send_UDP_thread(offer_message, UDP_socket, UDP_addr, send_thread_flag)
+        send_broadcast.start()
+
+        # establish connection with client
+
+
+        c1, addr1 = TCP_socket.accept()
+
+        # c2, addr2 = TCP_socket.accept()
+
+        # set flag to kill sending thread
+        send_thread_flag[0] = "True"
+        print("its changed")
+        send_broadcast.join()
+
+        time.sleep(10)
+
+        #closing UDP socket
+        UDP_socket.close()
+
+
+        ## ------------------------------------------------ STATE 2 - Game Mode ------------------------------------------------------------
+        recv_flag = False
+        while not recv_flag:
+            try:
+                # receive group names from the clients
+                group_1_name = c1.recv(1024).decode()
+                # group_2_name = c2.recv(1024).decode()
+                recv_flag = True
+            except socket.error as e:
+                print(e)
+                print(f"{bcolors.RED}didnt receive team name message, try again..")
+
+
+
+
+
+
+        # generate question
+        rand_question, answer = self.get_question()
+        #rand_question = "how much is " + str(digit1) + sign + str(digit2)
+        math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + "group_2_name" + "\n == \nPlease answer the following question as fast as you can:\n" + rand_question
+        # within 10 seconds - finish the game
+
+        # set flag to stop the game
+        flag = [False]
+        winner = ["Nobody, its a Draw!!!"]
+        t1 = Client_thread(c1, math_question_message, answer, group_1_name, "group_2_name", flag, winner)
+        # t2 = Client_thread(c2, math_question_message, answer, group_2_name, group_1_name, flag, winner)
+        t1.start()
+        # t2.start()
+        t1.join()
+        # t2.join()
+        final_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nCongratulations to the winner : " + winner[0]
+        # send final message to the clients
+        c1.send(final_message.encode())
+        # c2.send(final_message.encode())
+
+        # close TCP connection
+        c1.close()
+        # c2.close()
+        TCP_socket.close()
+
+        # print game summary
+        print(f"{bcolors.OKBLUE} summary:" + final_message)
+        print(f"{bcolors.OKBLUE}Game Over, sending out offer requests...")
+
+        #start over the game
+        self.start_server()
+
+    def build_msg(self, host_port):
+        # build the message according the format
+        magic_cookie = bytes.fromhex('abcddcba')
+        message_type = bytes.fromhex('02')
+        host_port_bytes = host_port.to_bytes(2, "big")
+        offer_message = b''.join([magic_cookie, message_type, host_port_bytes])
+        return offer_message
+
     def get_question(self):
         param1 = random.randint(1, 10)
         param2 = random.randint(1, 10)
@@ -42,72 +152,11 @@ class Server:
                 answer = int(param1 / param2)
                 sign = "/"
         if -1 < answer < 10:
-            return param1, param2, sign, answer
+            rand_question = "how much is " + str(param1) + sign + str(param2)
+            return rand_question, answer
+            #return param1, param2, sign, answer
         else:
             return self.get_question()
-
-    def start_server(self):
-        # host port - maybe the return value of the TCP Socket    or    BIND
-        our_IP = "55.5555..555.55555"
-        print(f"{bcolors.OKBLUE}Server started, listening on IP address " + our_IP)
-        ## --------------------- STATE 1 - Waiting for clients ----------------------------------------
-        UDP_destination_port = 13117
-        UDP_addr = ("127.0.0.1", UDP_destination_port)
-        # TCP_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        TCP_socket = socket(AF_INET, SOCK_STREAM)
-        TCP_socket.bind(('', 0))
-        host_port = TCP_socket.getsockname()[1]
-        # TCP_socket.bind((our_IP, host_port))
-        # build the message according the format
-        magic_cookie = bytes.fromhex('abcddcba')
-        message_type = bytes.fromhex('02')
-        host_port_bytes = host_port.to_bytes(2, "big")
-        offer_message = b''.join([magic_cookie, message_type, host_port_bytes])
-        # UDP_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        UDP_socket = socket(AF_INET, SOCK_DGRAM)
-        # send broadcast - every second
-        UDP_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        UDP_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-        # UDP_socket.bind(('', UDP_destination_port))
-        # UDP_socket.sendto(offer_message, ("", UDP_destination_port))
-        TCP_socket.listen(2)
-        send_thread_flag = ["amit"]
-        send_brodcast = Send_UDP_thread(offer_message, UDP_socket, UDP_addr, send_thread_flag)
-        send_brodcast.start()
-        c1, addr1 = TCP_socket.accept()
-        # c2, addr2 = TCP_socket.accept()
-        send_thread_flag[0] = "True"
-        print("its changed")
-        send_brodcast.join()
-        time.sleep(10)
-        UDP_socket.close()
-        ## --------------------- STATE 2 - Game Mode ----------------------------------------
-        group_1_name = c1.recv(1024).decode()
-        # group_2_name = c2.recv(1024).decode()
-        # generate question
-        digit1, digit2, sign, answer = self.get_question()
-        rand_question = "how much is " + str(digit1) + sign + str(digit2)
-        math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + "group_2_name" + "\n == \nPlease answer the following question as fast as you can:\n" + rand_question
-        # within 10 seconds - finish the game
-        flag = [False]
-        winner = ["Nobody, its a Draw!!!"]
-        t1 = Client_thread(c1, math_question_message, answer, group_1_name, "group_2_name", flag, winner)
-        # t2 = Client_thread(c2, math_question_message, answer, group_2_name, group_1_name, flag, winner)
-        t1.start()
-        # t2.start()
-        t1.join()
-        # t2.join()
-        final_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nCongratulations to the winner : " + winner[0]
-        # send final message to the clients
-        c1.send(final_message.encode())
-        # c2.send(final_message.encode())
-        # close TCP connection
-        c1.close()
-        # c2.close()
-        TCP_socket.close()
-        print(f"{bcolors.OKBLUE} summary:" + final_message)
-        print(f"{bcolors.OKBLUE}Game Over, sending out offer requests...")
-        self.start_server()
 
 class Client_thread(threading.Thread):
     def __init__(self, connection, question, answer, myName, opponnetName, flag, winner):
@@ -158,6 +207,7 @@ class Send_UDP_thread(threading.Thread):
 
 
     def run(self):
+        # send broadcast - every second
         while self.flag[0] == "amit":
             time.sleep(1)
             self.UDP_socket.sendto(self.offer_message,  self.UDP_addr)
