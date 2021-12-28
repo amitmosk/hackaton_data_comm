@@ -12,7 +12,7 @@ import time
 # print("socket is listening")
 from colors import bcolors
 
-finish_broadcast_flag = False
+
 finish_game_flag = False
 winner = ["Nobody, its a Draw!!!"]
 UDP_destination_port = 13117
@@ -56,20 +56,22 @@ def get_question():
 
 
 class Server:
+
     def __init__(self):
         self.our_IP = "127.0.0.1"
-
         self.start_server()
 
     def start_server(self):
         # host port
         UDP_addr = (self.our_IP, UDP_destination_port)
         print(f"{bcolors.OKBLUE}Server started, listening on IP address " + self.our_IP)
-        # -- STATE 1 - Waiting for clients --------------------------------------------------
+        # --------------------------------------------------------------- STATE 1 - Waiting for clients ------------------------------------------------------------
+
         # -- Create TCP socket
         TCP_socket, host_port, failed = self.create_bind_TCP_socket()
         if failed:
             return
+
         # Build offer for clients
         offer_message = build_msg(host_port)
         # -- Create UDP socket
@@ -84,6 +86,7 @@ class Server:
             print(e)
             TCP_socket.close()
             return
+
         # -- Create thread to manage broadcast sends
         send_broadcast = Send_UDP_thread(offer_message, UDP_socket, UDP_addr)
         send_broadcast.start()
@@ -91,6 +94,9 @@ class Server:
         try:
             c1, addr1 = TCP_socket.accept()
             c2, addr2 = TCP_socket.accept()
+            # -- Set flag to kill sending thread
+            global finish_broadcast_flag
+            finish_broadcast_flag = True
         except Exception as e:
             print(f"{bcolors.RED}Error in TCP socket")
             print(e)
@@ -98,15 +104,19 @@ class Server:
             # c1.close()
             # c2.close()
             # return
-        # -- Set flag to kill sending thread
-        global finish_broadcast_flag
-        finish_broadcast_flag = True
+
+
         send_broadcast.join()
-        # -- Wait 10 second before starting the game
-        time.sleep(10)
-        # -- STATE 2 - Game Mode ------------------------------------------------------------
+
+
+
+
+        # --------------------------------------------------------------- STATE 2 - Game Mode ------------------------------------------------------------
         # receive group names from the clients
         group_1_name, group_2_name = self.receive_group_names(c1, c2)
+        # -- Wait 10 second before starting the game
+        time.sleep(10)
+
         # generate question
         rand_question, answer = get_question()
         math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + "group_2_name" + \
@@ -118,8 +128,8 @@ class Server:
         t2.start()
         t1.join()
         t2.join()
-        final_message = "Game Over! \nThe correct answer was " + str(
-            answer) + "!\n \nCongratulations to the winner : " + winner[0]
+        final_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nCongratulations to the winner : " + winner[0]
+
         # send final message to the clients
         try:
             c1.send(final_message.encode())
@@ -174,6 +184,7 @@ class Server:
                 # receive group names from the clients
                 group_1_name = c1.recv(1024).decode()
                 group_2_name = c2.recv(1024).decode()
+                receive_flag = True
                 return group_1_name, group_2_name
             except socket.error as e:
                 print(f"{bcolors.RED}didnt receive team name message, try again..")
@@ -221,8 +232,9 @@ class Send_UDP_thread(threading.Thread):
         self.UDP_addr = UDP_addr
 
     def run(self):
-        # send broadcast - every second
         global finish_broadcast_flag
+        finish_broadcast_flag = False
+        # send broadcast - every second
         while finish_broadcast_flag is False:
             time.sleep(1)
             try:

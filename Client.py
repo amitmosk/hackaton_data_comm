@@ -8,9 +8,11 @@ UDP_IP = "127.0.0.1"
 UDP_PORT = 13117
 
 def check_offer_message(msg):
+    # divide message
     magic = msg[0:4]
     msg_type = msg[4]
     host_port = msg[5:7]
+
     if (msg_type != 2):
         print(f"{bcolors.RED}Illegal message type")
         return -1

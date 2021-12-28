@@ -18,7 +18,7 @@ if __name__ == '__main__':
             if user_choise == "1":
                 server = Server()
                 good_choise = True
-            if user_choise == "2":
+            elif user_choise == "2":
                 client = Client()
                 good_choise = True
             else:
