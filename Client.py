@@ -1,5 +1,5 @@
 import socket
-import sys
+import sys,select
 from colors import bcolors
 
 RESERVED_PORTS = 120
@@ -43,6 +43,7 @@ class Client:
         try:
             # closing TCP socket
             self.TCP_socket.close()
+            print(f"{bcolors.RED}Server disconnected, listening for offer requests...")
         except Exception as e:
             print(f"{bcolors.RED}Failed closing TCP socket")
             print(e)

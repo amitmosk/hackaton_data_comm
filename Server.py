@@ -3,6 +3,7 @@ import random
 import socket
 from socket import *
 import threading
+from threading import Timer
 import time
 
 # s.bind(('', port))
@@ -16,6 +17,8 @@ from colors import bcolors
 finish_game_flag = False
 winner = ["Nobody, its a Draw!!!"]
 UDP_destination_port = 13117
+timeout = 10
+
 
 def build_msg(host_port):
     # build the message according the format
@@ -115,11 +118,11 @@ class Server:
         # receive group names from the clients
         group_1_name, group_2_name = self.receive_group_names(c1, c2)
         # -- Wait 10 second before starting the game
-        time.sleep(10)
+        time.sleep(timeout)
 
         # generate question
         rand_question, answer = get_question()
-        math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + "group_2_name" + \
+        math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + group_2_name + \
                                 "\n == \nPlease answer the following question as fast as you can:\n" + rand_question
         # set flag to stop the game
         t1 = Client_thread(c1, math_question_message, answer, group_1_name, group_2_name)
@@ -151,6 +154,15 @@ class Server:
         print(f"{bcolors.OKBLUE} summary:" + final_message)
         print(f"{bcolors.OKBLUE}Game Over, sending out offer requests...")
 
+        self.reset_values()
+        self.start_server()
+
+    def reset_values(self):
+        finish_game_flag = False
+        global winner
+        winner = ["Nobody, its a Draw!!!"]
+        UDP_destination_port = 13117
+        timeout = 10
     def create_UDP_socket(self):
         try:
             UDP_socket = socket(AF_INET, SOCK_DGRAM)
@@ -204,7 +216,7 @@ class Client_thread(threading.Thread):
     def run(self):
         try:
             # send meesage
-            self.connection.settimeout(10)
+            self.connection.settimeout(timeout)
             self.connection.send(self.question.encode())
             # get answer and check
             client_answer = self.connection.recv(1024).decode()
@@ -215,6 +227,7 @@ class Client_thread(threading.Thread):
 
     def finish_game(self, client_answer):
         global finish_game_flag
+        #finish_game_flag = False
         global winner
         if finish_game_flag is False:
             if int(client_answer) == self.answer:
@@ -239,10 +252,12 @@ class Send_UDP_thread(threading.Thread):
             time.sleep(1)
             try:
                 self.UDP_socket.sendto(self.offer_message, self.UDP_addr)
+                print("send broadcast")
             except Exception as e:
                 pass
         # closing UDP socket
         try:
             self.UDP_socket.close()
+            print("closing UDP socket")
         except Exception as e:
             pass
