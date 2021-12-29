@@ -1,7 +1,7 @@
 import socket
 import sys,select
 from colors import bcolors
-from msvcrt import getch
+import getch
 RESERVED_PORTS = 120
 TEAM_NAME = "green apes\n"
 UDP_IP = "127.0.0.1"
@@ -60,6 +60,7 @@ class Client:
         print(f"{bcolors.OKBLUE}Client started, listening for offer requests...{bcolors.RED}")
         try:
             UDP_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            UDP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             UDP_socket.bind((UDP_IP, UDP_PORT))
             offer_message, addr = UDP_socket.recvfrom(1024)
             server_port = check_offer_message(offer_message)
@@ -105,19 +106,22 @@ class Client:
             print(e)
             return
 
+
         reads , _ , _ = select.select([sys.stdin,self.TCP_socket],[],[],timeout)
+       
         if sys.stdin in reads:
             #read from stdin and send to socket
-            print(f"{bcolors.PINK}Enter your answer:")
-            our_answer = getch()
+            #print(f"{bcolors.PINK}Enter your answer:")
+            #our_answer = _GetchUnix()
+            our_answer = sys.stdin.readline()[0]
+
             #our_answer = input(f"{bcolors.PINK}Enter your answer:")
             self.send_data_to_server(our_answer)
-        if self.TCP_socket in reads:
+        #if self.TCP_socket in reads:
             #read msg summary from server
-            self.get_question_msg()
-        else:
+        #else:
             #read msg summary from server
-            self.get_question_msg()
+        self.get_summary_msg()
     
         
        
@@ -130,16 +134,17 @@ class Client:
             print(f"{bcolors.RED}Failed sending the answer message")
             print(e)
             return
-        self.get_question_msg()
+        self.get_summary_msg()
 
 
-    def get_question_msg(self):
+    def get_summary_msg(self):
         try:
             # get the summary from server
             print(f"{bcolors.OKGREEN}--------------")
             print(self.TCP_socket.recv(1024).decode())
+            
         except Exception as e:
             print(f"{bcolors.RED}Failed getting the summary message")
             print(e)
             return
-        
+ 
