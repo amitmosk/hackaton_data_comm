@@ -112,16 +112,9 @@ class Client:
        
         if sys.stdin in reads:
             #read from stdin and send to socket
-            #print(f"{bcolors.PINK}Enter your answer:")
-            #our_answer = _GetchUnix()
             our_answer = sys.stdin.readline()[0]
-
-            #our_answer = input(f"{bcolors.PINK}Enter your answer:")
             self.send_data_to_server(our_answer)
-        #if self.TCP_socket in reads:
-            #read msg summary from server
-        #else:
-            #read msg summary from server
+        #read msg summary from server
         self.get_summary_msg()
     
         

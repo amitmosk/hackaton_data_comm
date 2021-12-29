@@ -5,19 +5,16 @@ from socket import *
 import threading
 from threading import Timer
 import time
-
-# s.bind(('', port))
-# print("socket binded to %s" % (port))
-# # put the socket into listening mode
-# s.listen(5)
-# print("socket is listening")
 from colors import bcolors
 
 finish_broadcast_flag = False
-finish_game_flag = False
+global finish_game_flag
+finish_game_flag = [False]
+global winner
 winner = ["Nobody, its a Draw!!!"]
 UDP_destination_port = 13117
-timeout = 10
+#timeout = 10
+timeout = 4
 magic_cookie_str = 'abcddcba'
 message_type_str = '02'
 stat_table = {}
@@ -62,18 +59,21 @@ def get_question():
 
 def add_to_stat(group_1_name, group_2_name):
         global stat_table
-        if group_1_name not in stat_table.keys:
+        if group_1_name not in stat_table:
             stat_table[group_1_name] = 0
-        if group_2_name not in stat_table.keys:
+        if group_2_name not in stat_table:
             stat_table[group_2_name] = 0
 
 def update_points(winner, looser, tie):
     if tie:
         stat_table[winner] +=1
-        stat_table[looser] +=1 
+        stat_table[looser] +=1
+        
     else:
         stat_table[winner] +=3
-        stat_table[looser] -=1    
+        #stat_table[looser] -=1 
+        #if stat_table[looser] < 0:
+         #   stat_table[looser] = 0    
 
 
 class Server:
@@ -143,35 +143,45 @@ class Server:
             c2.close()
             return
         
-        group_1_name = "a"
-        group_2_name = "b"
+        #group_1_name = "a"
+        #group_2_name = "b"
         #adding the groups to the statistics table
         add_to_stat(group_1_name, group_2_name)
         
         # generate question
         rand_question, answer = get_question()
-        math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + group_2_name + \
+        math_question_message = "Welcome to Quick Maths.\nPlayer 1: " + group_1_name + "\nPlayer 2: " + group_2_name + \
                                 "\n == \nPlease answer the following question as fast as you can:\n" + rand_question
         # set flag to stop the game
+        global finish_game_flag
+        finish_game_flag = False
         t1 = Client_thread(c1, math_question_message, answer, group_1_name, group_2_name)
         t2 = Client_thread(c2, math_question_message, answer, group_2_name, group_1_name)
         t1.start()
         t2.start()
         t1.join()
         t2.join()
-        final_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nCongratulations to the winner : " + winner[0] + '\n'
-        group_1_name+" points: "+ str(stat_table[group_1_name]) + "\n" + group_2_name + " points: " + str(stat_table[group_2_name])
-        
+        final_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nCongratulations to the winner : " + winner[0] + '\n'+\
+        group_1_name+" has "+ str(stat_table[group_1_name]) + " points\n" + group_2_name + " has "+ str(stat_table[group_2_name]) +  " points" 
+        tie_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nThe game ended in a draw : \n"+\
+            group_1_name+" has "+ str(stat_table[group_1_name]+1) + " points\n" + group_2_name + " has "+ str(stat_table[group_2_name]+1) +  " points" 
         #if tie
         if winner[0] == "Nobody, its a Draw!!!": 
             update_points(group_1_name,group_2_name, True)
-        # send final message to the clients
-        try:
-            c1.send(final_message.encode())
-            c2.send(final_message.encode())
-        except Exception as e:
-            print(f"{bcolors.RED}Failed sending final message")
-            print(e)
+            try:
+                c1.send(tie_message.encode())
+                c2.send(tie_message.encode())
+            except Exception as e:
+                print(f"{bcolors.RED}Failed sending final message")
+                print(e)
+        else:
+            # send final message to the clients
+            try:
+                c1.send(final_message.encode())
+                c2.send(final_message.encode())
+            except Exception as e:
+                print(f"{bcolors.RED}Failed sending final message")
+                print(e)
 
         # close TCP connection
         try:
@@ -190,9 +200,9 @@ class Server:
         global finish_broadcast_flag
         finish_broadcast_flag = False
         global finish_game_flag
-        finish_game_flag = False
+        finish_game_flag = [False]
         global winner
-        winner = ["Nobody, its a Draw!!!"]
+        winner[0] = "Nobody, its a Draw!!!"
 
     def create_UDP_socket(self):
         try:
@@ -228,7 +238,6 @@ class Server:
             # receive group names from the clients
             group_1_name = c1.recv(1024).decode()
             group_2_name = c2.recv(1024).decode()
-            #receive_flag = True
             return group_1_name, group_2_name
         except socket.error as e:
             print(f"{bcolors.RED}didnt receive team name message, try again..")
@@ -257,21 +266,23 @@ class Client_thread(threading.Thread):
             self.finish_game(client_answer)
         except Exception as e:
             # draw
+            print("Opponent disconnected, Its a Draw")
             pass
 
     def finish_game(self, client_answer):
         global finish_game_flag
-        #finish_game_flag = False
         global winner
-        if finish_game_flag is False:
+        if finish_game_flag[0] is False:
             if int(client_answer) == self.answer:
                 winner[0] = self.myName
+                print("I have been changed")
                 update_points(self.myName, self.opponnetName, False)
             else:
                 winner[0] = self.opponnetName
+                print("opponent have been changed")
                 update_points(self.opponnetName, self.myName, False)
-                
-            finish_game_flag = True
+            print("answer is: "+self.answer)
+            finish_game_flag[0] = True
 
 
 class Send_UDP_thread(threading.Thread):
