@@ -18,12 +18,13 @@ finish_game_flag = False
 winner = ["Nobody, its a Draw!!!"]
 UDP_destination_port = 13117
 timeout = 10
-
+magic_cookie_str = 'abcddcba'
+message_type_str = '02'
 
 def build_msg(host_port):
     # build the message according the format
-    magic_cookie = bytes.fromhex('abcddcba')
-    message_type = bytes.fromhex('02')
+    magic_cookie = bytes.fromhex(magic_cookie_str)
+    message_type = bytes.fromhex(message_type_str)
     host_port_bytes = host_port.to_bytes(2, "big")
     offer_message = b''.join([magic_cookie, message_type, host_port_bytes])
     return offer_message

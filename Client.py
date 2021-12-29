@@ -6,6 +6,9 @@ RESERVED_PORTS = 120
 TEAM_NAME = "green apes\n"
 UDP_IP = "127.0.0.1"
 UDP_PORT = 13117
+timeout=10
+magic_cookie_bytes =b"\xab\xcd\xdc\xba"
+msg_type_const = 2
 
 def check_offer_message(msg):
     # divide message
@@ -13,10 +16,10 @@ def check_offer_message(msg):
     msg_type = msg[4]
     host_port = msg[5:7]
 
-    if (msg_type != 2):
+    if (msg_type != msg_type_const):
         print(f"{bcolors.RED}Illegal message type")
         return -1
-    if (magic != b"\xab\xcd\xdc\xba"):
+    if (magic != magic_cookie_bytes):
         print(f"{bcolors.RED}Illegal message magic number")
         return -1
     ans = int.from_bytes(host_port, "big")
@@ -47,6 +50,8 @@ class Client:
         except Exception as e:
             print(f"{bcolors.RED}Failed closing TCP socket")
             print(e)
+
+        self.start_client()
 
     def state_1(self):
         # -- CREATE UDP SOCKET
@@ -93,18 +98,38 @@ class Client:
             # get & print the question
             print(self.TCP_socket.recv(1024).decode())
             # getting answer from user
-            our_answer = input(f"{bcolors.PINK}Enter your answer:")
         except Exception as e:
             print(f"{bcolors.RED}Failed getting the question message")
             print(e)
             return
+
+        reads , _ , _ = select.select([sys.stdin,self.TCP_socket],[],[],10)
+        if sys.stdin in reads:
+            #read from stdin and send to socket
+            our_answer = input(f"{bcolors.PINK}Enter your answer:")
+            self.send_data_to_server(our_answer)
+        if self.TCP_socket in reads:
+            #read msg summary from server
+            self.get_question_msg()
+        else:
+            #read msg summary from server
+            self.get_question_msg()
+    
+        
+       
+
+    def send_data_to_server(self, ans):
         try:
             # send our answer to the server
-            self.TCP_socket.send(our_answer.encode())
+            self.TCP_socket.send(ans.encode())
         except Exception as e:
             print(f"{bcolors.RED}Failed sending the answer message")
             print(e)
             return
+        self.get_question_msg()
+
+
+    def get_question_msg(self):
         try:
             # get the summary from server
             print(f"{bcolors.OKGREEN}--------------")
@@ -113,3 +138,4 @@ class Client:
             print(f"{bcolors.RED}Failed getting the summary message")
             print(e)
             return
+        
