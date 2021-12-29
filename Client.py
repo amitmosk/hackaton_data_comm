@@ -24,7 +24,11 @@ def check_offer_message(msg):
         print(f"{bcolors.RED}Illegal message magic number")
         return -1
     ans = int.from_bytes(host_port, "big")
-    
+    if ans > RESERVED_PORTS:
+        return ans
+    else:
+        print(f"{bcolors.RED}Illegal host port")
+        return -1
 
 class Client:
     def __init__(self):
