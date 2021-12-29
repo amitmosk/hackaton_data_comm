@@ -9,6 +9,7 @@ UDP_PORT = 13117
 timeout=10
 magic_cookie_bytes =b"\xab\xcd\xdc\xba"
 msg_type_const = 2
+my_points = 0
 
 def check_offer_message(msg):
     # divide message

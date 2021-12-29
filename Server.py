@@ -131,16 +131,23 @@ class Server:
         # receive group names from the clients
         c1.settimeout(timeout)
         c2.settimeout(timeout)
+
+        # -- Wait 10 second before starting the game
+        time.sleep(timeout)
+        
         group_1_name, group_2_name = self.receive_group_names(c1, c2)
-        if group_1_name is None or group_2_name==None:
+
+        if group_1_name is None or group_2_name is None:
             TCP_socket.close()
             c1.close()
             c2.close()
             return
+        
+        group_1_name = "a"
+        group_2_name = "b"
         #adding the groups to the statistics table
         add_to_stat(group_1_name, group_2_name)
-        # -- Wait 10 second before starting the game
-        time.sleep(timeout)
+        
         # generate question
         rand_question, answer = get_question()
         math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + group_2_name + \
@@ -205,6 +212,7 @@ class Server:
             # create TCP socket
             TCP_socket = socket(AF_INET, SOCK_STREAM)
             TCP_socket.bind(('', 0))
+            #host_port = TCP_socket.gethostbyname(socket.gethostname())
             host_port = TCP_socket.getsockname()[1]
             return TCP_socket, host_port, False
         except Exception as e:
