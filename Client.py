@@ -1,7 +1,7 @@
 import socket
 import sys,select
 from colors import bcolors
-
+from msvcrt import getch
 RESERVED_PORTS = 120
 TEAM_NAME = "green apes\n"
 UDP_IP = "127.0.0.1"
@@ -32,9 +32,11 @@ def check_offer_message(msg):
 class Client:
     def __init__(self):
         self.TCP_socket = None
-        self.start_client()
+        while True:
+            self.start_client()
 
     def start_client(self):
+
         server_ip, server_port, failed = self.state_1()
         if failed:
             return
@@ -51,7 +53,7 @@ class Client:
             print(f"{bcolors.RED}Failed closing TCP socket")
             print(e)
 
-        self.start_client()
+        #self.start_client()
 
     def state_1(self):
         # -- CREATE UDP SOCKET
@@ -103,10 +105,12 @@ class Client:
             print(e)
             return
 
-        reads , _ , _ = select.select([sys.stdin,self.TCP_socket],[],[],10)
+        reads , _ , _ = select.select([sys.stdin,self.TCP_socket],[],[],timeout)
         if sys.stdin in reads:
             #read from stdin and send to socket
-            our_answer = input(f"{bcolors.PINK}Enter your answer:")
+            print(f"{bcolors.PINK}Enter your answer:")
+            our_answer = getch()
+            #our_answer = input(f"{bcolors.PINK}Enter your answer:")
             self.send_data_to_server(our_answer)
         if self.TCP_socket in reads:
             #read msg summary from server

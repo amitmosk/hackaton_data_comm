@@ -13,7 +13,7 @@ import time
 # print("socket is listening")
 from colors import bcolors
 
-
+finish_broadcast_flag = False
 finish_game_flag = False
 winner = ["Nobody, its a Draw!!!"]
 UDP_destination_port = 13117
@@ -63,7 +63,9 @@ class Server:
 
     def __init__(self):
         self.our_IP = "127.0.0.1"
-        self.start_server()
+        while True:
+            self.start_server()
+            self.reset_values()
 
     def start_server(self):
         # host port
@@ -104,23 +106,20 @@ class Server:
         except Exception as e:
             print(f"{bcolors.RED}Error in TCP socket")
             print(e)
-            # TCP_socket.close()
-            # c1.close()
-            # c2.close()
-            # return
-
 
         send_broadcast.join()
-
-
-
-
         # --------------------------------------------------------------- STATE 2 - Game Mode ------------------------------------------------------------
         # receive group names from the clients
+        c1.settimeout(timeout)
+        c2.settimeout(timeout)
         group_1_name, group_2_name = self.receive_group_names(c1, c2)
+        if group_1_name is None or group_2_name==None:
+            TCP_socket.close()
+            c1.close()
+            c2.close()
+            return
         # -- Wait 10 second before starting the game
         time.sleep(timeout)
-
         # generate question
         rand_question, answer = get_question()
         math_question_message = "Welcome to Quick Maths.\nPlayer 1:" + group_1_name + " \nPlayer 2: " + group_2_name + \
@@ -133,7 +132,6 @@ class Server:
         t1.join()
         t2.join()
         final_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nCongratulations to the winner : " + winner[0]
-
         # send final message to the clients
         try:
             c1.send(final_message.encode())
@@ -150,20 +148,19 @@ class Server:
         except Exception as e:
             print(f"{bcolors.RED}Failed closing sockets")
             print(e)
-
         # print game summary
         print(f"{bcolors.OKBLUE} summary:" + final_message)
         print(f"{bcolors.OKBLUE}Game Over, sending out offer requests...")
 
-        self.reset_values()
-        self.start_server()
-
+    
     def reset_values(self):
+        global finish_broadcast_flag
+        finish_broadcast_flag = False
+        global finish_game_flag
         finish_game_flag = False
         global winner
         winner = ["Nobody, its a Draw!!!"]
-        UDP_destination_port = 13117
-        timeout = 10
+
     def create_UDP_socket(self):
         try:
             UDP_socket = socket(AF_INET, SOCK_DGRAM)
@@ -191,18 +188,19 @@ class Server:
             return None, None, True
 
     def receive_group_names(self, c1, c2):
-        receive_flag = False
-        while not receive_flag:
-            try:
-                # receive group names from the clients
-                group_1_name = c1.recv(1024).decode()
-                group_2_name = c2.recv(1024).decode()
-                receive_flag = True
-                return group_1_name, group_2_name
-            except socket.error as e:
-                print(f"{bcolors.RED}didnt receive team name message, try again..")
-                print(e)
+        #receive_flag = False
 
+        try:
+            # receive group names from the clients
+            group_1_name = c1.recv(1024).decode()
+            group_2_name = c2.recv(1024).decode()
+            #receive_flag = True
+            return group_1_name, group_2_name
+        except socket.error as e:
+            print(f"{bcolors.RED}didnt receive team name message, try again..")
+            print(e)
+            return None, None
+            
 
 class Client_thread(threading.Thread):
     def __init__(self, connection, question, answer, myName, opponnetName):
@@ -217,7 +215,6 @@ class Client_thread(threading.Thread):
     def run(self):
         try:
             # send meesage
-            self.connection.settimeout(timeout)
             self.connection.send(self.question.encode())
             # get answer and check
             client_answer = self.connection.recv(1024).decode()
