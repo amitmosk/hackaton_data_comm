@@ -9,7 +9,7 @@ from colors import bcolors
 
 finish_broadcast_flag = False
 global finish_game_flag
-finish_game_flag = [False]
+finish_game_flag = False
 global winner
 winner = ["Nobody, its a Draw!!!"]
 UDP_destination_port = 13117
@@ -143,8 +143,8 @@ class Server:
             c2.close()
             return
         
-        #group_1_name = "a"
-        #group_2_name = "b"
+        group_1_name = "a"
+        group_2_name = "b"
         #adding the groups to the statistics table
         add_to_stat(group_1_name, group_2_name)
         
@@ -163,25 +163,18 @@ class Server:
         t2.join()
         final_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nCongratulations to the winner : " + winner[0] + '\n'+\
         group_1_name+" has "+ str(stat_table[group_1_name]) + " points\n" + group_2_name + " has "+ str(stat_table[group_2_name]) +  " points" 
-        tie_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nThe game ended in a draw : \n"+\
-            group_1_name+" has "+ str(stat_table[group_1_name]+1) + " points\n" + group_2_name + " has "+ str(stat_table[group_2_name]+1) +  " points" 
+        
         #if tie
         if winner[0] == "Nobody, its a Draw!!!": 
             update_points(group_1_name,group_2_name, True)
-            try:
-                c1.send(tie_message.encode())
-                c2.send(tie_message.encode())
-            except Exception as e:
-                print(f"{bcolors.RED}Failed sending final message")
-                print(e)
-        else:
-            # send final message to the clients
-            try:
-                c1.send(final_message.encode())
-                c2.send(final_message.encode())
-            except Exception as e:
-                print(f"{bcolors.RED}Failed sending final message")
-                print(e)
+        
+        # send final message to the clients
+        try:
+            c1.send(final_message.encode())
+            c2.send(final_message.encode())
+        except Exception as e:
+            print(f"{bcolors.RED}Failed sending final message")
+            print(e)
 
         # close TCP connection
         try:
@@ -200,7 +193,7 @@ class Server:
         global finish_broadcast_flag
         finish_broadcast_flag = False
         global finish_game_flag
-        finish_game_flag = [False]
+        finish_game_flag = False
         global winner
         winner[0] = "Nobody, its a Draw!!!"
 
@@ -272,7 +265,7 @@ class Client_thread(threading.Thread):
     def finish_game(self, client_answer):
         global finish_game_flag
         global winner
-        if finish_game_flag[0] is False:
+        if finish_game_flag is False:
             if int(client_answer) == self.answer:
                 winner[0] = self.myName
                 print("I have been changed")
@@ -282,7 +275,7 @@ class Client_thread(threading.Thread):
                 print("opponent have been changed")
                 update_points(self.opponnetName, self.myName, False)
             print("answer is: "+self.answer)
-            finish_game_flag[0] = True
+            finish_game_flag = True
 
 
 class Send_UDP_thread(threading.Thread):
