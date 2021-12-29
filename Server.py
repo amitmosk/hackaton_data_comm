@@ -20,6 +20,7 @@ UDP_destination_port = 13117
 timeout = 10
 magic_cookie_str = 'abcddcba'
 message_type_str = '02'
+stat_table = {}
 
 def build_msg(host_port):
     # build the message according the format
@@ -59,9 +60,26 @@ def get_question():
     return rand_question, answer
 
 
+def add_to_stat(group_1_name, group_2_name):
+        global stat_table
+        if group_1_name not in stat_table.keys:
+            stat_table[group_1_name] = 0
+        if group_2_name not in stat_table.keys:
+            stat_table[group_2_name] = 0
+
+def update_points(winner, looser, tie):
+    if tie:
+        stat_table[winner] +=1
+        stat_table[looser] +=1 
+    else:
+        stat_table[winner] +=3
+        stat_table[looser] -=1    
+
+
 class Server:
 
     def __init__(self):
+    
         self.our_IP = "127.0.0.1"
         while True:
             self.start_server()
@@ -100,6 +118,7 @@ class Server:
         try:
             c1, addr1 = TCP_socket.accept()
             c2, addr2 = TCP_socket.accept()
+
             # -- Set flag to kill sending thread
             global finish_broadcast_flag
             finish_broadcast_flag = True
@@ -118,6 +137,8 @@ class Server:
             c1.close()
             c2.close()
             return
+        #adding the groups to the statistics table
+        add_to_stat(group_1_name, group_2_name)
         # -- Wait 10 second before starting the game
         time.sleep(timeout)
         # generate question
@@ -131,7 +152,12 @@ class Server:
         t2.start()
         t1.join()
         t2.join()
-        final_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nCongratulations to the winner : " + winner[0]
+        final_message = "Game Over! \nThe correct answer was " + str(answer) + "!\n \nCongratulations to the winner : " + winner[0] + '\n'
+        group_1_name+" points: "+ str(stat_table[group_1_name]) + "\n" + group_2_name + " points: " + str(stat_table[group_2_name])
+        
+        #if tie
+        if winner[0] == "Nobody, its a Draw!!!": 
+            update_points(group_1_name,group_2_name, True)
         # send final message to the clients
         try:
             c1.send(final_message.encode())
@@ -200,7 +226,9 @@ class Server:
             print(f"{bcolors.RED}didnt receive team name message, try again..")
             print(e)
             return None, None
-            
+    
+
+
 
 class Client_thread(threading.Thread):
     def __init__(self, connection, question, answer, myName, opponnetName):
@@ -230,8 +258,11 @@ class Client_thread(threading.Thread):
         if finish_game_flag is False:
             if int(client_answer) == self.answer:
                 winner[0] = self.myName
+                update_points(self.myName, self.opponnetName, False)
             else:
                 winner[0] = self.opponnetName
+                update_points(self.opponnetName, self.myName, False)
+                
             finish_game_flag = True
 
 
