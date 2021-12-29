@@ -24,11 +24,7 @@ def check_offer_message(msg):
         print(f"{bcolors.RED}Illegal message magic number")
         return -1
     ans = int.from_bytes(host_port, "big")
-    if ans > RESERVED_PORTS:
-        return ans
-    else:
-        print(f"{bcolors.RED}Illegal host port")
-        return -1
+    
 
 class Client:
     def __init__(self):
@@ -61,43 +57,21 @@ class Client:
         print(f"{bcolors.OKBLUE}Client started, listening for offer requests...{bcolors.RED}")
         try:
             UDP_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        except Exception as err:
-            print(f"{bcolors.RED}UDP socket failed - 1 with error %s" % (err))
-            UDP_socket.close()
-            return None, None, True
-        try:
             UDP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        except Exception as err:
-            print(f"{bcolors.RED}UDP socket failed - 2 with error %s" % (err))
-            UDP_socket.close()
-            return None, None, True
-        try:
             UDP_socket.bind((UDP_IP, UDP_PORT))
-        except Exception as err:
-            print(f"{bcolors.RED}UDP socket failed - 3 with error %s" % (err))
-            UDP_socket.close()
-            return None, None, True
-        try:
             offer_message, addr = UDP_socket.recvfrom(1024)
-        except Exception as err:
-            print(f"{bcolors.RED}UDP socket failed - 4 with error %s" % (err))
-            UDP_socket.close()
-            return None, None, True
-        try:
             server_port = check_offer_message(offer_message)
             server_ip = addr[0]
             UDP_socket.close()
+            if server_port == -1:
+                print(f"{bcolors.RED}Broken message from server")
+                return server_ip, server_port, True
+            else:
+                return server_ip, server_port, False
         except Exception as err:
-            print(f"{bcolors.RED}UDP socket failed - 5 with error %s" % (err))
+            print(f"{bcolors.RED}UDP socket creation & get broadcast message failed with error %s" % (err))
             UDP_socket.close()
             return None, None, True
-
-        if server_port == -1:
-            print(f"{bcolors.RED}Broken message from server")
-            return server_ip, server_port, True
-        else:
-            return server_ip, server_port, False
-
 
     def state_2(self, server_ip, server_port):
         try:
