@@ -1,10 +1,8 @@
 import socket
 import sys,select
 from colors import bcolors
-import getch
-RESERVED_PORTS = 120
 TEAM_NAME = "green apes\n"
-UDP_IP = "127.0.0.1"
+UDP_IP = "172.99.0.2058"
 UDP_PORT = 13117
 timeout=10
 magic_cookie_bytes =b"\xab\xcd\xdc\xba"
@@ -24,11 +22,6 @@ def check_offer_message(msg):
         print(f"{bcolors.RED}Illegal message magic number")
         return -1
     ans = int.from_bytes(host_port, "big")
-    if ans > RESERVED_PORTS:
-        return ans
-    else:
-        print(f"{bcolors.RED}Illegal host port")
-        return -1
 
 class Client:
     def __init__(self):
